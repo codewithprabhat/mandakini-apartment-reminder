@@ -1,0 +1,82 @@
+name: Rent Reminder
+
+on:
+  schedule:
+    # Daily reminder — 9:00 AM IST = 3:30 AM UTC
+    - cron: "30 3 * * *"
+
+    # Monthly reset — 1st of every month at 12:00 AM IST = 6:30 PM UTC (prev day)
+    # We run it at 00:01 IST on the 1st = 18:31 UTC on the last day of month
+    # Simpler: run at midnight UTC on the 1st (5:30 AM IST on the 1st — before reminders)
+    - cron: "0 0 1 * *"
+
+  # Allow manual trigger from GitHub Actions tab
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "Which job to run"
+        required: true
+        default: "reminder"
+        type: choice
+        options:
+          - reminder
+          - reset
+
+jobs:
+  # ── Daily reminder job ──────────────────────────────────────────────────────
+  send-reminders:
+    # Only run on the daily schedule trigger OR manual reminder trigger
+    if: >
+      github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'reminder' ||
+      github.event.schedule == '30 3 * * *'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run reminder script
+        env:
+          FAST2SMS_API_KEY:        ${{ secrets.FAST2SMS_API_KEY }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          SPREADSHEET_ID:          ${{ secrets.SPREADSHEET_ID }}
+          CONFIRMATION_BASE_URL:   ${{ secrets.CONFIRMATION_BASE_URL }}
+          APARTMENT_NAME:          ${{ secrets.APARTMENT_NAME }}
+          REMINDER_STOP_DAY:       ${{ secrets.REMINDER_STOP_DAY }}
+        run: python reminder.py
+
+  # ── Monthly reset job ───────────────────────────────────────────────────────
+  monthly-reset:
+    # Only run on the 1st-of-month schedule OR manual reset trigger
+    if: >
+      github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'reset' ||
+      github.event.schedule == '0 0 1 * *'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run monthly reset
+        env:
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          SPREADSHEET_ID:          ${{ secrets.SPREADSHEET_ID }}
+        run: python reset_monthly.py
