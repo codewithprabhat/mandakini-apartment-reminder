@@ -23,12 +23,22 @@ import sys
 import json
 import requests
 from datetime import datetime
+from pathlib import Path
 
 import gspread
 from google.oauth2.service_account import Credentials
+from dotenv import load_dotenv
 
 
 # ── Environment variables ─────────────────────────────────────────────────────
+
+# Load local .env for development runs.
+# In CI/production, real environment variables are still used.
+_script_dir = Path(__file__).resolve().parent
+_env_path = _script_dir / ".env"
+load_dotenv(dotenv_path=_env_path, override=False)
+if not _env_path.exists():
+    load_dotenv(override=False)  # fallback: current working directory
 
 def get_env(key: str, default: str = None) -> str:
     value = os.environ.get(key, default)
@@ -102,8 +112,11 @@ def send_sms(phone: str, name: str, row_id: str) -> dict:
         f"Once paid, tap this link to confirm (one tap marks you as paid): "
         f"{confirmation_url}"
     )
-    payload = {
+    headers = {
         "authorization": FAST2SMS_API_KEY,
+        "Content-Type": "application/json",
+    }
+    payload = {
         "message":       message,
         "language":      "english",
         "route":         "q",
@@ -112,6 +125,7 @@ def send_sms(phone: str, name: str, row_id: str) -> dict:
     try:
         resp = requests.post(
             "https://www.fast2sms.com/dev/bulkV2",
+            headers=headers,
             json=payload,
             timeout=15,
         )

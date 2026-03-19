@@ -126,6 +126,48 @@ Go to repo → Actions → Rent Reminder → Run workflow → choose `reminder` 
 
 ---
 
+## Deployment (Render)
+
+Deploy the Flask web app to Render so the mark-as-paid confirmation link works in production.
+
+### Prerequisites
+- Repo pushed to GitHub
+- Google Sheet, Fast2SMS, and service account configured (see Setup Guide above)
+
+### Steps
+
+1. **Create Web Service**
+   - Go to [render.com](https://render.com) → **New +** → **Web Service**
+   - Connect GitHub and select this repository
+
+2. **Configure Build**
+   - **Name:** e.g. `rent-reminder` or `mandakini-apartment-reminder`
+   - **Runtime:** Python 3
+   - **Build Command:** `pip install -r requirements.txt`
+   - **Start Command:** `gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 30`
+
+3. **Add Environment Variables**
+   - In **Environment** tab, add all variables from `env.example`:
+   - `GOOGLE_CREDENTIALS_JSON` — single-line service account JSON
+   - `SPREADSHEET_ID` — from your Google Sheet URL
+   - `APARTMENT_NAME` — e.g. `Mandakini Garden`
+   - `CONFIRMATION_BASE_URL` — leave blank for now (set after deploy)
+
+4. **Deploy**
+   - Click **Create Web Service**
+   - Wait for build and deploy to finish
+
+5. **Set Confirmation URL**
+   - Copy your Render URL (e.g. `https://rent-reminder.onrender.com`)
+   - In Render **Environment** tab, set `CONFIRMATION_BASE_URL` to that URL (no trailing slash)
+   - In GitHub **Settings → Secrets → Actions**, set `CONFIRMATION_BASE_URL` to the same URL
+
+6. **Verify**
+   - Open `https://your-app.onrender.com/health` — should return `{"status":"ok"}`
+   - Open `https://your-app.onrender.com/confirm?id=1` — should mark row 1 as Paid in your sheet
+
+---
+
 ## Local Dev Testing
 
 Use this before production deployment changes, or whenever you want to validate sheet + confirmation flow safely.

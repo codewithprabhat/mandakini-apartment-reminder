@@ -15,10 +15,20 @@ Required environment variables:
 import os
 import sys
 import json
+from pathlib import Path
 from datetime import datetime
 
 import gspread
 from google.oauth2.service_account import Credentials
+from dotenv import load_dotenv
+
+
+# Load local .env for development runs.
+_script_dir = Path(__file__).resolve().parent
+_env_path = _script_dir / ".env"
+load_dotenv(dotenv_path=_env_path, override=False)
+if not _env_path.exists():
+    load_dotenv(override=False)
 
 
 def get_env(key: str, default: str = None) -> str:

@@ -1,0 +1,80 @@
+name: Rent Reminder
+
+on:
+  schedule:
+    # 09:00 IST daily (03:30 UTC)
+    - cron: "30 3 * * *"
+    # Monthly reset on day 1 (00:05 UTC)
+    - cron: "5 0 1 * *"
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "Choose which job to run"
+        required: true
+        default: reminder
+        type: choice
+        options:
+          - reminder
+          - reset
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rent-reminder-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  reminder:
+    if: >
+      github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'reminder' ||
+      github.event_name == 'schedule' && github.event.schedule == '30 3 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FAST2SMS_API_KEY: ${{ secrets.FAST2SMS_API_KEY }}
+      GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+      SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+      CONFIRMATION_BASE_URL: ${{ secrets.CONFIRMATION_BASE_URL }}
+      APARTMENT_NAME: ${{ secrets.APARTMENT_NAME }}
+      REMINDER_STOP_DAY: ${{ secrets.REMINDER_STOP_DAY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run reminder job
+        run: python reminder.py
+
+  reset:
+    if: >
+      github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'reset' ||
+      github.event_name == 'schedule' && github.event.schedule == '5 0 1 * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+      SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run monthly reset job
+        run: python reset_monthly.py
